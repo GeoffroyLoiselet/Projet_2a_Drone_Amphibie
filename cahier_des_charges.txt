@@ -2,3 +2,17 @@ Cahier des charges :
 
 Drone amphibie, air et eau
 
+Hauteur, vitesse pas importante.
+
+Moteur : 
+Etanches
+Puissants pour l'air et l'eau
+
+Alimentation :
+Batterie ou cable a choisir
+Autonomie 10 minutes et plus
+
+Commande :
+Télécomande RF ou cablé (direct vers télécommande ou boué)
+
+
