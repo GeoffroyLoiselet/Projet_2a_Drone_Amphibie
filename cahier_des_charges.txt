@@ -16,3 +16,7 @@ Commande :
 Télécomande RF ou cablé (direct vers télécommande ou boué)
 
 
+discussion : 
+1er temps - communication filaire (et peut etre alimentation)
+2eme temps- communication via bouée/balise sans fil 
+manette 
