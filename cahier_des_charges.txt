@@ -20,3 +20,5 @@ discussion :
 1er temps - communication filaire (et peut etre alimentation)
 2eme temps- communication via bouée/balise sans fil 
 manette 
+
+https://flying-rabbit-fpv.com/2020/10/06/designing-my-own-flight-controller/
