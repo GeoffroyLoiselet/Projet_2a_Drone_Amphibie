@@ -22,3 +22,19 @@ discussion :
 manette 
 
 https://flying-rabbit-fpv.com/2020/10/06/designing-my-own-flight-controller/
+
+Fonctionnement moteur drone : 
+
+3 fils (controle) :
+100 Hz (10 ms)
+2,5 Vpp (0V-2,5V)
+
+2 fils (puissance) :
+7,5V
+
+Protocole : 
+  1. Alimenter controle
+  2. Alimenter puissance
+  3. Mettre alpha <= 1ms
+  4. Fonctionnement normal (1ms mini à 2ms maxi)
+
