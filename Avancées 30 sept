@@ -1,0 +1,281 @@
+Manette MX-20
+
+Le récepteur est branché sur l’ESC (ou sur la STM32).
+
+La STM32 lit le(s) canal(aux) du récepteur (via PWM individuel, PPM sum, ou SBUS) et calcule/filtre/mixe la consigne avant d’écrire la PWM vers l’ESC.
+
+Avantages : faible latence, robuste, permet traitement/PID/mélange. C’est la config standard d’un contrôleur de vol. 
+wiki.mikrokopter.de
++1
+
+_________
+
+On peut relier le récepteur 2.4GHz au drone via un cable blindé, le récepteur restera en surface et le cable sera waterproof.
+
+Masse commune obligatoire : relie le GND du récepteur, de la STM32 et de l’ESC. Sans masse commune, les signaux ne seront pas reconnus.
+Niveaux logiques : la plupart des récepteurs modernes sortent du TTL 3.3 V (compatible STM32). Si ton récepteur sort 5 V, il faut un diviseur ou un adaptateur logique.
+Longueur du câble : signaux PWM/PPM/SBUS peuvent être sensibles sur longue distance → utiliser câble blindé / twisted pair et vérifier l’intégrité du signal. Pour des longueurs importantes (>2–5 m) considère une conversion en signal différentiel (RS485) pour fiabilité.
+Fils à utiliser : câble multi-conducteurs blindés ou paire torsadée + blindage. Connecteurs étanches au passage dans la coque.
+________
+ASSERVISSEMENT : 
+Schéma général d’asservissement (type drone quadri)
+
+Capteurs :
+
+IMU (gyro 3 axes + accéléro 3 axes).
+
+Eventuellement baro (altitude), GPS (position).
+
+Boucle de contrôle :
+
+PID (ou PI) sur pitch, roll, yaw.
+
+Chaque boucle calcule une correction Δω (variation de vitesse moteur).
+Mixer :
+Mélange la consigne de throttle (gaz général) avec les corrections PID.
+Exemple quadri en croix :
+M1 = throttle + roll + pitch – yaw
+M2 = throttle – roll + pitch + yaw
+M3 = throttle – roll – pitch – yaw
+M4 = throttle + roll – pitch + yaw
+Sortie vers moteurs :
+PWM 50 Hz (1000–2000 µs) ou DShot.
+Chaque moteur reçoit sa consigne mise à jour à ~400 Hz (ou plus si ESC modernes).
+
+
+exemple pseudo code en C : 
+// Inputs (IMU)
+float gyro_roll, gyro_pitch, gyro_yaw;   // mesurés en deg/s
+float acc_roll, acc_pitch;               // mesurés en deg
+
+// PID variables
+float error_roll, error_pitch, error_yaw;
+float integral_roll, integral_pitch, integral_yaw;
+float derivative_roll, derivative_pitch, derivative_yaw;
+
+// Gains à régler
+float Kp=1.0, Ki=0.0, Kd=0.05;
+
+// Target (manche radio)
+float set_roll=0, set_pitch=0, set_yaw=0;
+float throttle = 1500;  // µs moyen
+
+// Boucle de contrôle (appelée à 400 Hz)
+void control_loop(void) {
+    // Calcul erreurs (utilise gyro/acc fusionnés par filtre complémentaire ou Kalman)
+    error_roll  = set_roll  - measured_roll;
+    error_pitch = set_pitch - measured_pitch;
+    error_yaw   = set_yaw   - measured_yaw;
+
+    // PID roll
+    integral_roll += error_roll * dt;
+    derivative_roll = (error_roll - prev_error_roll) / dt;
+    float corr_roll = Kp*error_roll + Ki*integral_roll + Kd*derivative_roll;
+    prev_error_roll = error_roll;
+
+    // idem pitch et yaw...
+
+    // Mixage moteurs (quad X)
+    int M1 = throttle + corr_roll + corr_pitch - corr_yaw;
+    int M2 = throttle - corr_roll + corr_pitch + corr_yaw;
+    int M3 = throttle - corr_roll - corr_pitch - corr_yaw;
+    int M4 = throttle + corr_roll - corr_pitch + corr_yaw;
+
+    // Saturation entre 1000 et 2000 µs
+    M1 = constrain(M1, 1000, 2000);
+    M2 = constrain(M2, 1000, 2000);
+    M3 = constrain(M3, 1000, 2000);
+    M4 = constrain(M4, 1000, 2000);
+
+    // Envoi vers ESC
+    set_esc_pulse(1, M1);
+    set_esc_pulse(2, M2);
+    set_esc_pulse(3, M3);
+    set_esc_pulse(4, M4);
+}
+
+capteurs possibles : MPU6050 / MPU9250 / ICM20602 (SPI/I2C).
+____________________
+
+Exemple simple d’asservissement PID pour un quadri (STM32 HAL + C)
+
+
+A) Variables et PID
+
+// IMU (roll, pitch)
+float roll, pitch;      // angles mesurés
+float roll_set = 0;     // consigne (plat)
+float pitch_set = 0;
+
+// PID gains
+float Kp_roll = 1.5, Ki_roll = 0.0, Kd_roll = 0.05;
+float Kp_pitch = 1.5, Ki_pitch = 0.0, Kd_pitch = 0.05;
+
+// PID state
+float integral_roll = 0, prev_error_roll = 0;
+float integral_pitch = 0, prev_error_pitch = 0;
+
+// Throttle (manuel)
+uint16_t throttle = 1500; // µs moyen
+
+B)
+float pid(float setpoint, float measured, float *integral, float *prev_error, 
+          float Kp, float Ki, float Kd, float dt)
+{
+    float error = setpoint - measured;
+    *integral += error * dt;
+    float derivative = (error - *prev_error)/dt;
+    *prev_error = error;
+    return Kp*error + Ki*(*integral) + Kd*derivative;
+}
+
+C)
+void control_loop(float dt) {
+    // Lire IMU
+    read_imu(&roll, &pitch); // roll & pitch en degrés
+
+    // PID pour roll et pitch
+    float corr_roll  = pid(roll_set, roll, &integral_roll, &prev_error_roll,
+                           Kp_roll, Ki_roll, Kd_roll, dt);
+    float corr_pitch = pid(pitch_set, pitch, &integral_pitch, &prev_error_pitch,
+                           Kp_pitch, Ki_pitch, Kd_pitch, dt);
+
+    // Mixage quad X
+    int M1 = throttle + corr_roll + corr_pitch; // avant gauche
+    int M2 = throttle - corr_roll + corr_pitch; // avant droite
+    int M3 = throttle - corr_roll - corr_pitch; // arrière droite
+    int M4 = throttle + corr_roll - corr_pitch; // arrière gauche
+
+    // Saturation 1000–2000 µs
+    M1 = constrain(M1, 1000, 2000);
+    M2 = constrain(M2, 1000, 2000);
+    M3 = constrain(M3, 1000, 2000);
+    M4 = constrain(M4, 1000, 2000);
+
+    // Envoi aux ESC
+    set_esc_pulse(1, M1);
+    set_esc_pulse(2, M2);
+    set_esc_pulse(3, M3);
+    set_esc_pulse(4, M4);
+}
+
+
+EXEMPLE CONCRET //////////////////////////////////////////
+MAIN.c
+
+#include "main.h"
+#include "imu.h"
+#include "pid.h"
+#include "esc.h"
+
+// PID gains air
+PID_t pid_roll_air  = {1.5, 0.0, 0.05};
+PID_t pid_pitch_air = {1.5, 0.0, 0.05};
+
+// PID gains water (exemple, à ajuster selon tests)
+PID_t pid_roll_water  = {4.0, 0.0, 0.2};
+PID_t pid_pitch_water = {4.0, 0.0, 0.2};
+
+float roll_set = 0.0f;   // consigne roll (plat)
+float pitch_set = 0.0f;  // consigne pitch (plat)
+uint16_t throttle = 1500; // µs
+
+float roll, pitch; // angles mesurés
+uint32_t last_tick = 0;
+
+bool mode_air = true; // true = air, false = water
+
+int main(void) {
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_I2C1_Init();
+    MX_TIM2_Init(); // PWM pour ESC
+
+    esc_init();      // initialise tous les moteurs PWM
+    imu_init();      // initialise MPU6050
+
+    last_tick = HAL_GetTick();
+
+    while (1) {
+        uint32_t now = HAL_GetTick();
+        float dt = (now - last_tick)/1000.0f; // dt en secondes
+        last_tick = now;
+
+        // lecture IMU
+        imu_update(&roll, &pitch, dt);
+
+        // sélection PID selon environnement
+        PID_t *pid_roll  = mode_air ? &pid_roll_air : &pid_roll_water;
+        PID_t *pid_pitch = mode_air ? &pid_pitch_air : &pid_pitch_water;
+
+        // calcul PID
+        float corr_roll  = pid_compute(pid_roll, roll_set, roll, dt);
+        float corr_pitch = pid_compute(pid_pitch, pitch_set, pitch, dt);
+
+        // mixage quad X
+        int M1 = throttle + corr_roll + corr_pitch;
+        int M2 = throttle - corr_roll + corr_pitch;
+        int M3 = throttle - corr_roll - corr_pitch;
+        int M4 = throttle + corr_roll - corr_pitch;
+
+        M1 = constrain(M1, 1000, 2000);
+        M2 = constrain(M2, 1000, 2000);
+        M3 = constrain(M3, 1000, 2000);
+        M4 = constrain(M4, 1000, 2000);
+
+        // envoi PWM ESC
+        esc_set_pulse(0, M1);
+        esc_set_pulse(1, M2);
+        esc_set_pulse(2, M3);
+        esc_set_pulse(3, M4);
+
+        HAL_Delay(2); // boucle ~500 Hz
+    }
+}
+
+pid.h
+
+typedef struct {
+    float Kp;
+    float Ki;
+    float Kd;
+    float integral;
+    float prev_error;
+} PID_t;
+
+float pid_compute(PID_t *pid, float setpoint, float measured, float dt);
+
+
+pid.c
+
+#include "pid.h"
+
+float pid_compute(PID_t *pid, float setpoint, float measured, float dt)
+{
+    float error = setpoint - measured;
+    pid->integral += error * dt;
+    float derivative = (error - pid->prev_error)/dt;
+    pid->prev_error = error;
+    return pid->Kp*error + pid->Ki*pid->integral + pid->Kd*derivative;
+}
+
+
+esc.h/c
+
+
+void esc_init(void);
+void esc_set_pulse(uint8_t channel, uint16_t pulse_us);
+
+
+imu.h / imu.c
+
+Lecture MPU6050 via I2C
+
+Filtre complémentaire pour fusion gyro + acc
+
+void imu_init(void);
+void imu_update(float *roll, float *pitch, float dt);
+float alpha = 0.98; // gyro dominant
+*roll  = alpha * (*roll + gyro_x * dt) + (1 - alpha) * acc_roll;
+*pitch = alpha * (*pitch + gyro_y * dt) + (1 - alpha) * acc_pitch;
