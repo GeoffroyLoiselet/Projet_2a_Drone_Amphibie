@@ -27,7 +27,7 @@ Fonctionnement moteur drone :
 
 3 fils (controle) :
 100 Hz (10 ms)
-2,5 Vpp (0V-2,5V)
+5 Vpp
 
 2 fils (puissance) :
 7,5V
