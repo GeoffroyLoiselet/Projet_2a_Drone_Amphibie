@@ -38,3 +38,9 @@ Protocole :
   3. Mettre alpha <= 1ms
   4. Fonctionnement normal (1ms mini à 2ms maxi)
 
+Premier Test moteur : 
+le 3.3Vpp semble suffir pour la pwm 
+Observations lors de la boucle 5-10% (ou 1ms à 2ms sur20ms) le moteur redémarre à 1.09ms environ
+Alimentation numérique de 3.3V digitale est suffisante (mais à voir car elle implique une augmentation du courant
+Lors du test (duty++10 chaque 3secondes) on a observé une chute de tension de puissance (descendu à 6V pour 2ms)
+
