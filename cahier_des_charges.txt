@@ -44,3 +44,17 @@ Observations lors de la boucle 5-10% (ou 1ms à 2ms sur20ms) le moteur redémarr
 Alimentation numérique de 3.3V digitale est suffisante (mais à voir car elle implique une augmentation du courant
 Lors du test (duty++10 chaque 3secondes) on a observé une chute de tension de puissance (descendu à 6V pour 2ms)
 
+PCB Drone : 
+
+- STM32G431CBU6
+  - 4 PWM (moteurs)
+  - SDA, SCL, GND, VCC, 4 vides (gyroscope)
+
+- Alim
+  - ??? V
+  - GND
+  - Diviseur de tension ??????
+
+- USB
+
+- RF
