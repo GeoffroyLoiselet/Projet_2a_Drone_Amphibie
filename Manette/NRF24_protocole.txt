@@ -1,0 +1,5 @@
+Warning pour l'utilisation du nrf24l01:
+
+mettre un 1 a la 5e position du registre a laquelle tu veux adresser.
+
+
