@@ -3,3 +3,10 @@ Pour utiliser le moteur :
 L'alimentation du moteur : 3s = 11.1V
 L'alimentation de l'ESC : 3.3v
 La PWM : 100Hz(10ms) et l'initialiser la pulsion à 1ms pour commencer(consommation de courant : 0.2A) . Ensuite elle monte au max à 2ms et elle consomme dans ce cas (0.68A).
+
+
+Dans le fichier .ioc mettre :
+-PSC = 9999
+-ARR = 799
+
+Activer : Internal Clock
