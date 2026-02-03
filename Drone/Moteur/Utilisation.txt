@@ -6,7 +6,7 @@ La PWM : 100Hz(10ms) et l'initialiser la pulsion à 1ms pour commencer(consommat
 
 
 Dans le fichier .ioc mettre :
--PSC = 9999
+-PSC = 999
 -ARR = 799
 
 Activer : Internal Clock
